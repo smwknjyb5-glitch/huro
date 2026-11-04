@@ -1,1 +1,304 @@
- 
+<!DOCTYPE html> 
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>الإنسان ضد الروبوت - جمع القطعة النقدية</title>
+<style>
+body{
+    margin:0;
+    font-family:Tahoma,Arial,sans-serif;
+    background:#eef5ff;
+    text-align:center;
+}
+h1{color:#173b70;margin:15px}
+#menu{
+    background:white;
+    padding:15px;
+    box-shadow:0 2px 8px #aaa;
+}
+button{
+    border:0;
+    padding:12px 20px;
+    margin:5px;
+    border-radius:10px;
+    font-size:18px;
+    cursor:pointer;
+    background:#1769aa;
+    color:white;
+}
+button:hover{background:#0d4f82}
+input{
+    width:70px;
+    padding:8px;
+    font-size:18px;
+    text-align:center;
+}
+#info{font-size:20px;margin:12px}
+#game{
+    width:90%;
+    max-width:900px;
+    height:480px;
+    margin:15px auto;
+    background:#dff3df;
+    border:5px solid #315b31;
+    border-radius:15px;
+    position:relative;
+    overflow:hidden;
+}
+.coin{
+    width:72px;
+    height:72px;
+    position:absolute;
+    cursor:pointer;
+    user-select:none;
+    animation:appear .15s;
+    z-index:5;
+}
+.coin img{
+    width:100%;
+    height:100%;
+    object-fit:contain;
+    display:block;
+}
+.coin.collected{
+    animation:collect .2s forwards;
+}
+@keyframes appear{
+    from{transform:scale(.2);opacity:0}
+    to{transform:scale(1);opacity:1}
+}
+@keyframes collect{
+    to{transform:scale(1.7);opacity:0}
+}
+#message{
+    font-size:23px;
+    font-weight:bold;
+    color:#173b70;
+    min-height:35px;
+}
+#result{
+    display:none;
+    width:90%;
+    max-width:700px;
+    margin:20px auto;
+    padding:20px;
+    background:white;
+    border-radius:15px;
+    box-shadow:0 3px 12px #aaa;
+}
+.resultBox{
+    display:flex;
+    justify-content:center;
+    gap:20px;
+    flex-wrap:wrap;
+}
+.card{
+    width:230px;
+    padding:15px;
+    border-radius:12px;
+    background:#f1f6ff;
+}
+.card h2{margin:5px}
+.big{font-size:38px;font-weight:bold;color:#1769aa}
+#winner{font-size:28px;font-weight:bold;margin:20px}
+</style>
+</head>
+<body>
+
+<h1>🪙 الإنسان ضد الروبوت 🤖</h1>
+
+<div id="menu">
+    <label>
+        مدة الاختبار:
+        <input id="duration" type="number" value="20" min="5" max="120">
+        ثانية
+    </label>
+    <br>
+    <button onclick="startHuman()">👤 ابدأ اختبار الإنسان</button>
+    <button onclick="startRobot()">🤖 ابدأ اختبار الروبوت</button>
+    <button onclick="resetGame()">🔄 إعادة</button>
+</div>
+
+<div id="info">
+    الزمن: <span id="time">0</span>
+    |
+    القطع المجموعة: <span id="score">0</span>
+    |
+    متوسط زمن الاستجابة:
+    <span id="average">0</span> ms
+</div>
+
+<div id="message">اضغط على «ابدأ اختبار الإنسان»</div>
+<div id="game"></div>
+
+<div id="result">
+    <h1>🏁 النتيجة النهائية</h1>
+    <div class="resultBox">
+        <div class="card">
+            <h2>👤 الإنسان</h2>
+            <div class="big" id="humanResult">0</div>
+            قطعة
+        </div>
+        <div class="card">
+            <h2>🤖 الروبوت</h2>
+            <div class="big" id="robotResult">0</div>
+            قطعة
+        </div>
+    </div>
+    <div id="winner"></div>
+</div>
+
+<script>
+const game=document.getElementById("game");
+const durationInput=document.getElementById("duration");
+const timeDisplay=document.getElementById("time");
+const scoreDisplay=document.getElementById("score");
+const averageDisplay=document.getElementById("average");
+const message=document.getElementById("message");
+const result=document.getElementById("result");
+const humanResult=document.getElementById("humanResult");
+const robotResult=document.getElementById("robotResult");
+const winner=document.getElementById("winner");
+
+let timer=null, coinTimer=null, mode="";
+let score=0, humanScore=0, robotScore=0;
+let startTime=0, reactionTimes=[], remaining=0;
+
+function createCoin(){
+    game.innerHTML="";
+    const coin=document.createElement("div");
+    coin.className="coin";
+
+    const img=document.createElement("img");
+    img.src="coin.png";
+    img.alt="قطعة نقدية 50";
+    coin.appendChild(img);
+
+    const maxX=game.clientWidth-80;
+    const maxY=game.clientHeight-80;
+    coin.style.left=(Math.random()*maxX)+"px";
+    coin.style.top=(Math.random()*maxY)+"px";
+
+    game.appendChild(coin);
+    startTime=performance.now();
+
+    if(mode==="human"){
+        coin.onclick=function(){
+            reactionTimes.push(performance.now()-startTime);
+            score++;
+            updateScore();
+            coin.classList.add("collected");
+            setTimeout(createCoin,100);
+        };
+    }
+
+    if(mode==="robot"){
+        const robotReaction=180+Math.random()*250;
+        coinTimer=setTimeout(function(){
+            if(mode!=="robot") return;
+            score++;
+            updateScore();
+            coin.classList.add("collected");
+            setTimeout(createCoin,100);
+        },robotReaction);
+    }
+}
+
+function updateScore(){
+    scoreDisplay.textContent=score;
+    if(reactionTimes.length){
+        const total=reactionTimes.reduce((a,b)=>a+b,0);
+        averageDisplay.textContent=Math.round(total/reactionTimes.length);
+    }
+}
+
+function startHuman(){
+    stopGame();
+    mode="human";
+    score=0;
+    reactionTimes=[];
+    remaining=Number(durationInput.value);
+    timeDisplay.textContent=remaining;
+    scoreDisplay.textContent=0;
+    averageDisplay.textContent=0;
+    result.style.display="none";
+    message.innerHTML="👤 اضغط على القطعة بأسرع ما يمكنك!";
+    createCoin();
+
+    timer=setInterval(()=>{
+        remaining--;
+        timeDisplay.textContent=remaining;
+        if(remaining<=0) endHuman();
+    },1000);
+}
+
+function endHuman(){
+    clearInterval(timer);
+    clearTimeout(coinTimer);
+    humanScore=score;
+    game.innerHTML="";
+    message.innerHTML="انتهى اختبار الإنسان 🛑<br>اضغط الآن على «ابدأ اختبار الروبوت»";
+}
+
+function startRobot(){
+    stopGame();
+    mode="robot";
+    score=0;
+    remaining=Number(durationInput.value);
+    timeDisplay.textContent=remaining;
+    scoreDisplay.textContent=0;
+    averageDisplay.textContent="—";
+    result.style.display="none";
+    message.innerHTML="🤖 الروبوت يبحث عن القطعة ويجمعها...";
+    createCoin();
+
+    timer=setInterval(()=>{
+        remaining--;
+        timeDisplay.textContent=remaining;
+        if(remaining<=0) endRobot();
+    },1000);
+}
+
+function endRobot(){
+    clearInterval(timer);
+    clearTimeout(coinTimer);
+    robotScore=score;
+    game.innerHTML="";
+    message.innerHTML="انتهى اختبار الروبوت 🛑";
+    showResults();
+}
+
+function showResults(){
+    humanResult.textContent=humanScore;
+    robotResult.textContent=robotScore;
+    result.style.display="block";
+
+    if(humanScore>robotScore)
+        winner.innerHTML="🏆 الإنسان هو الفائز!";
+    else if(robotScore>humanScore)
+        winner.innerHTML="🤖 الروبوت هو الفائز!";
+    else
+        winner.innerHTML="🤝 تعادل!";
+}
+
+function resetGame(){
+    stopGame();
+    mode="";
+    score=humanScore=robotScore=0;
+    reactionTimes=[];
+    timeDisplay.textContent=0;
+    scoreDisplay.textContent=0;
+    averageDisplay.textContent=0;
+    game.innerHTML="";
+    result.style.display="none";
+    message.innerHTML="اضغط على «ابدأ اختبار الإنسان»";
+}
+
+function stopGame(){
+    clearInterval(timer);
+    clearTimeout(coinTimer);
+}
+</script>
+</body>
+</html> 
